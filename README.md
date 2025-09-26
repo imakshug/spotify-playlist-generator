@@ -10,6 +10,22 @@ A full-stack web application that lets you create Spotify playlists by simply pa
 - **Real-time Results**: See which songs were found and which weren't
 - **Responsive Design**: Works on desktop and mobile devices
 
+## 📸 Screenshots
+
+### Main Application Interface
+![Spotify Playlist Generator Interface](img/image1.png)
+*The main interface showing the song input area and playlist creation functionality*
+
+### Application Dashboard
+![Application Dashboard](img/image2.png)
+*User dashboard after successful Spotify authentication*
+
+### Playlist Creation Success
+![Playlist Creation](img/image3.png)
+*Successful playlist creation with track search results*
+
+## 🛠️ Tech Stack
+
 ##  Tech Stack
 
 - **Frontend**: React.js with modern hooks and styling
