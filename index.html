@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Playlist Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1db954, #191414);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        
+        .message {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: 500;
+            background-color: rgba(29, 185, 84, 0.2);
+            border: 1px solid #1db954;
+        }
+        
+        .login-section, .main-content {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            background-color: #1db954;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 10px;
+        }
+        
+        button:hover:not(:disabled) {
+            background-color: #1ed760;
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        textarea, input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background-color: rgba(0, 0, 0, 0.4);
+            color: white;
+            font-size: 1rem;
+            margin: 10px 0;
+        }
+        
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: #1db954;
+        }
+        
+        .tracks-list {
+            text-align: left;
+            margin: 20px 0;
+        }
+        
+        .track-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        
+        .track-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QuickPlaylist</h1>
+        <p class="subtitle">Turn your song list into a Spotify playlist — instantly.</p>
+        
+        <div id="message"></div>
+        
+        <div id="login-section" class="login-section">
+            <p>Connect your Spotify account to get started</p>
+            <button onclick="loginWithSpotify()" id="login-btn">Login with Spotify</button>
+        </div>
+        
+        <div id="code-input-section" class="login-section" style="display: none;">
+            <p>After authorizing on Spotify, copy the "code" parameter from the URL and paste it here:</p>
+            <input type="text" id="auth-code-input" placeholder="Paste the authorization code here..." />
+            <button onclick="submitAuthCode()" id="submit-code-btn">Submit Code</button>
+            <button onclick="cancelAuth()" style="background-color: #666;">Cancel</button>
+        </div>
+        
+        <div id="main-content" class="main-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <span id="user-name">Welcome!</span>
+                <button onclick="logout()" style="background-color: #e74c3c; padding: 8px 16px;">Logout</button>
+            </div>
+            
+            <textarea 
+                id="song-names" 
+                rows="10" 
+                placeholder="Drop your bangers here, chef"></textarea>
+            
+            <button onclick="searchTracks()" id="search-btn">Search Tracks</button>
+            
+            <div id="results-section" style="display: none;">
+                <h3 id="results-title">Search Results</h3>
+                <div id="tracks-list" class="tracks-list"></div>
+                
+                <input 
+                    type="text" 
+                    id="playlist-name" 
+                    placeholder="Enter playlist name" />
+                
+                <button onclick="createPlaylist()" id="create-btn">Create Playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:5000';
+        let user = null;
+        let searchResults = null;
+
+        // Check for authorization code in URL
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            
+            if (code && !user) {
+                handleSpotifyCallback(code);
+            }
+        });
+
+        function showMessage(msg, isSuccess = false) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = msg;
+            messageDiv.style.display = msg ? 'block' : 'none';
+            messageDiv.style.backgroundColor = isSuccess ? 'rgba(46, 204, 113, 0.2)' : 'rgba(29, 185, 84, 0.2)';
+            messageDiv.style.borderColor = isSuccess ? '#2ecc71' : '#1db954';
+        }
+
+        async function loginWithSpotify() {
+            try {
+                console.log('Attempting to login with Spotify...');
+                const response = await fetch(`${API_BASE_URL}/auth/login`);
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Login data:', data);
+                
+                // Open Spotify authorization in new window
+                window.open(data.url, '_blank');
+                
+                // Show the code input section
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('code-input-section').style.display = 'block';
+                showMessage('Authorization window opened! After approving, copy the "code" parameter from the URL and paste it below:', false);
+                
+            } catch (error) {
+                showMessage('Failed to initiate Spotify login');
+                console.error('Login error:', error);
+            }
+        }
+
+        async function submitAuthCode() {
+            const codeInput = document.getElementById('auth-code-input').value.trim();
+            if (!codeInput) {
+                showMessage('Please enter the authorization code');
+                return;
+            }
+            
+            await handleSpotifyCallback(codeInput);
+        }
+
+        function cancelAuth() {
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('code-input-section').style.display = 'none';
+            document.getElementById('auth-code-input').value = '';
+            showMessage('');
+        }
+
+        async function handleSpotifyCallback(code) {
+            try {
+                document.getElementById('login-btn').textContent = 'Connecting...';
+                document.getElementById('login-btn').disabled = true;
+                
+                const response = await fetch(`${API_BASE_URL}/auth/callback`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                
+                const data = await response.json();
+                user = data.user;
+                localStorage.setItem('spotify_access_token', data.access_token);
+                
+                // Clean URL
+                window.history.replaceState({}, document.title, '/');
+                showMessage(`Welcome, ${user.display_name}!`, true);
+                
+                // Show main content
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                document.getElementById('user-name').textContent = `Welcome, ${user.display_name}!`;
+                
+            } catch (error) {
+                showMessage('Failed to authenticate with Spotify');
+                console.error('Callback error:', error);
+                document.getElementById('login-btn').textContent = 'Login with Spotify';
+                document.getElementById('login-btn').disabled = false;
+            }
+        }
+
+        async function searchTracks() {
+            const songNames = document.getElementById('song-names').value.trim();
+            if (!songNames) {
+                showMessage('Please enter some song names');
+                return;
+            }
+
+            const accessToken = localStorage.getItem('spotify_access_token');
+            if (!accessToken) {
+                showMessage('Please login with Spotify first');
+                return;
+            }
+
+            try {
+                document.getElementById('search-btn').textContent = 'Searching...';
+                document.getElementById('search-btn').disabled = true;
+                
+                const songList = songNames.split('\n').filter(song => song.trim());
+                
+                const response = await fetch(`${API_BASE_URL}/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ songNames: songList, accessToken })
+                });
+
+                searchResults = await response.json();
+                displayResults(searchResults);
+                showMessage(`Found ${searchResults.found} out of ${searchResults.total} songs`);
+                
+            } catch (error) {
+                showMessage('Failed to search for tracks');
+                console.error('Search error:', error);
+            } finally {
+                document.getElementById('search-btn').textContent = 'Search Tracks';
+                document.getElementById('search-btn').disabled = false;
+            }
+        }
+
+        function displayResults(results) {
+            const resultsSection = document.getElementById('results-section');
+            const resultsTitle = document.getElementById('results-title');
+            const tracksList = document.getElementById('tracks-list');
+            
+            resultsTitle.textContent = `Search Results (${results.found}/${results.total} found)`;
+            
+            tracksList.innerHTML = '';
+            results.tracks.forEach(track => {
+                const trackDiv = document.createElement('div');
+                trackDiv.className = 'track-item';
+                trackDiv.innerHTML = `
+                    <img src="${track.album.images[2]?.url || ''}" alt="${track.name}" class="track-image">
+                    <div>
+                        <strong>${track.name}</strong><br>
+                        <span>${track.artists.map(artist => artist.name).join(', ')}</span>
+                    </div>
+                `;
+                tracksList.appendChild(trackDiv);
+            });
+            
+            resultsSection.style.display = 'block';
+        }
+
+        async function createPlaylist() {
+            if (!searchResults || searchResults.tracks.length === 0) {
+                showMessage('No tracks to add to playlist');
+                return;
+            }
+
+            const playlistName = document.getElementById('playlist-name').value.trim();
+            if (!playlistName) {
+                showMessage('Please enter a playlist name');
+                return;
+            }
+
+            const accessToken = localStorage.getItem('spotify_access_token');
+            if (!accessToken || !user) {
+                showMessage('Please login with Spotify first');
+                return;
+            }
+
+            try {
+                document.getElementById('create-btn').textContent = 'Creating...';
+                document.getElementById('create-btn').disabled = true;
+                
+                console.log('searchResults before creating playlist:', searchResults);
+                
+                if (!searchResults || !searchResults.tracks || searchResults.tracks.length === 0) {
+                    showMessage('No tracks found. Please search for tracks first!');
+                    return;
+                }
+                
+                const trackUris = searchResults.tracks.map(track => track.uri);
+                console.log('Track URIs to add:', trackUris);
+                
+                const response = await fetch(`${API_BASE_URL}/create-playlist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playlistName,
+                        trackUris,
+                        accessToken,
+                        userId: user.id
+                    })
+                });
+
+                const result = await response.json();
+                console.log('Playlist creation result:', result);
+                
+                const trackCount = result.tracksAdded || 0;
+                showMessage(` Playlist "${playlistName}" is live with ${trackCount} tracks!`, true);
+                
+                // Reset form
+                document.getElementById('song-names').value = '';
+                document.getElementById('playlist-name').value = '';
+                document.getElementById('results-section').style.display = 'none';
+                searchResults = null;
+                
+            } catch (error) {
+                showMessage('Failed to create playlist');
+                console.error('Playlist creation error:', error);
+            } finally {
+                document.getElementById('create-btn').textContent = 'Create Playlist';
+                document.getElementById('create-btn').disabled = false;
+            }
+        }
+
+        function logout() {
+            user = null;
+            localStorage.removeItem('spotify_access_token');
+            searchResults = null;
+            
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('main-content').style.display = 'none';
+            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('song-names').value = '';
+            document.getElementById('playlist-name').value = '';
+            
+            showMessage('Logged out successfully');
+        }
+    </script>
+</body>
+</html>
